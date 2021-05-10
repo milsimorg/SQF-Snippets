@@ -1,0 +1,91 @@
+// AUTHOR	:	Original Mike (MK4)
+// MP MACHINE	:	ALL
+// Called from	:	Trigger On activation field
+// Called using	:	 nul = [0] spawn Txu_fBorderControl;
+// Time Called	:	Trigger activatiion
+// Description	:
+//
+// COMMENTS	:
+//
+// Create a trigger with the following settings:
+// - Repeatedly
+// - Activation by (side you wish to impose the LOA on)
+// - Cond: (vehicle player in thisList)
+// - On Act:  nul = [] spawn Txu_fBorderControl;
+// - On Deact:
+//
+// To exclude a player or a vehicle from the LOA, put this in its init line:
+// this setVariable ["Txu_NoLOA", false];
+//
+
+
+//
+
+
+ private["_sy","_sc", "_distance", "_msg", "_vel", "_velX", "_velY", "_velZ", "_dir", "_pos", "_posX", "_posY", "_posZ", "_eh", "_key","_disabledKeys" ];
+ _sy = "MISC";
+ _sc = "fbordercontrol";
+ if(Txu_Debug)  then {[_sy,_sc,"START",_this]call Txu_fDebug_ScriptInit};
+
+
+_veh = vehicle player;
+_distance = 4; // preferred bumping distance
+
+
+if ( format["%1",_veh getVariable "Txu_NoLOA"] != "false" ) then
+{
+ // send the player a message (standard msg when none was given)
+ _msg = if (count _this > 0) then { _this select 0 } else
+   { format["%1, you were entering a RESTRICTED ZONE. Check your map.", toUpper(name player)] };
+ titleText [_msg, "PLAIN"];
+
+ // no need for multiple people to do this
+ if ( player == driver _veh ) then
+ {
+   // get the velocity vector
+   _vel = velocity _veh;
+   _velX = _vel select 0;
+   _velY = _vel select 1;
+   _velZ = _vel select 2;
+
+   // get the direction of movement (could be different from the direction of the unit)
+   _dir = [[0,0,0], _vel] call Txu_Misc_fDirTo;
+
+   // turn 180
+   _dir = _dir + 180;
+   _veh setDir _dir;
+
+   // place unit a few meters forward
+   _pos = getPosATL _veh;
+   _posX = _pos select 0;
+   _posY = _pos select 1;
+   _posZ = _pos select 2;
+   _veh setPosATL [(_posX + sin(_dir) * _distance), (_posY + cos(_dir) * _distance), _posZ];
+
+   // reverse the velocity vector
+   _veh setVelocity [-_velX, -_velY, -_velZ];
+
+   // if it was a footmobile, freeze userinput for a second
+   // - needed because the LOA will be checked every 0.5 sec
+   // - workaround for buggy disableUserInput
+   if ( player == _veh ) then
+   {
+     Tx_fDisableMovementKeys = {
+       _key = _this select 1;
+       _disabledKeys = (actionKeys "moveForward") +  (actionKeys "moveBack") + (actionKeys "MoveLeft") +  (actionKeys "MoveRight");
+
+       if ( _key in _disabledKeys ) then { true } else { false };
+     };
+     _eh = (findDisplay 46) displayAddEventhandler ["keyDown", "_this call Tx_fDisableMovementKeys"];
+     uisleep 1;
+     (findDisplay 46) displayRemoveEventHandler ["keyDown", _eh];
+   };
+ };
+};
+
+
+// end
+
+
+
+ if(Txu_Debug)  then {[_sy,_sc,"END"]call Txu_fDebug_ScriptInit};
